@@ -1,0 +1,39 @@
+# 1. 依赖包（必须忽略，几十兆且可还原）
+node_modules/
+
+# 2. HBuilder X 编译后的所有产物（绝对核心！必须忽略）
+unpackage/
+dist/
+build/
+
+# 3. HBuilder X 本地 IDE 配置（建议忽略，避免不同电脑配置冲突）
+.hbuilderx/
+.project
+.classpath
+.settings/
+
+# 4. 环境变量与本地隐私配置（如你填写的AppID、密钥等）
+.env
+.env.local
+.env.*.local
+manifest.json.backup
+
+# 5. 打包生成的安装包（APK/IPA）
+*.apk
+*.ipa
+*.aab
+
+# 6. 操作系统临时文件（Mac和Windows通用）
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 7. 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 8. 编译缓存
+.eslintcache
+*.tsbuildinfo
