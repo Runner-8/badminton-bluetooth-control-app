@@ -46,7 +46,7 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\threshold\threshold
 				ballCount: 0,
 				currentBucketIndex: 0,
 				buckets: [0, 0, 0],
-				maxPerBucket: 10,
+				maxPerBucket: 2,
 				isConnected: false
 			}
 		},
@@ -70,7 +70,7 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\threshold\threshold
 			
 			this.isConnected = bluetoothManager.getIsConnected()
 			bluetoothManager.addListener(this.onConnectionChange)
-			bluetoothManager.addDataListener(this.onDataReceived)
+			//bluetoothManager.addDataListener(this.onDataReceived)
 			bluetoothManager.addStateListener(this.onStateChange)
 		},
 		onShow() {
@@ -78,7 +78,7 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\threshold\threshold
 		},
 		onUnload() {
 			bluetoothManager.removeListener(this.onConnectionChange)
-			bluetoothManager.removeDataListener(this.onDataReceived)
+			//bluetoothManager.removeDataListener(this.onDataReceived)
 			bluetoothManager.removeStateListener(this.onStateChange)
 		},
 		methods: {
@@ -92,35 +92,35 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\threshold\threshold
 				this.currentBucketIndex = state.currentBucketIndex
 			},
 			
-			onDataReceived(cmd, data) {
-				console.log('收到数据:', cmd, data)
+			//onDataReceived(cmd, data) {
+				//console.log('收到数据:', cmd, data)
 				
-				if (cmd === 0x09 && data.length >= 3) {
-					const newBuckets = [data[0], data[1], data[2]]
+				//if (cmd === 0x08 && data.length >= 3) {
+					//const newBuckets = [data[0], data[1], data[2]]
 					
 					// 自动判断当前活跃桶：第一个未满的桶
-					let activeBucket = 0
-					for (let i = 0; i < 3; i++) {
-						if (newBuckets[i] < this.maxPerBucket) {
-							activeBucket = i
-							break
-						}
-					}
+					//let activeBucket = 0
+					//for (let i = 0; i < 3; i++) {
+						//if (newBuckets[i] < this.maxPerBucket) {
+							//activeBucket = i
+							//break
+						//}
+					//}
 					// 如果全满了，保持最后一个桶
-					if (newBuckets[0] >= this.maxPerBucket && 
-					    newBuckets[1] >= this.maxPerBucket && 
-					    newBuckets[2] >= this.maxPerBucket) {
-						activeBucket = 2
-					}
+					//if (newBuckets[0] >= this.maxPerBucket && 
+					    //newBuckets[1] >= this.maxPerBucket && 
+					    //newBuckets[2] >= this.maxPerBucket) {
+						//activeBucket = 2
+					//}
 					
 					// 写入全局状态
-					bluetoothManager.setState({
-						ballCount: newBuckets[0] + newBuckets[1] + newBuckets[2],
-						buckets: newBuckets,
-						currentBucketIndex: activeBucket
-					})
-				}
-			}
+					//bluetoothManager.setState({
+						//ballCount: newBuckets[0] + newBuckets[1] + newBuckets[2],
+						//buckets: newBuckets,
+						//currentBucketIndex: activeBucket
+					//})
+				//}
+			//}
 		}
 	}
 </script>

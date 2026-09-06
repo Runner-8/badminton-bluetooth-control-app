@@ -19,7 +19,9 @@ class BluetoothManager {
 			isAutoMode: false,
 			ballCount: 0,
 			buckets: [0, 0, 0],
-			currentBucketIndex: 0
+			currentBucketIndex: 0,
+			suctionOn: false,
+			maxPerBucket: 10
 		}
 		this.stateListeners = []
 		
@@ -30,14 +32,14 @@ class BluetoothManager {
 			LEFT: 0x03,         // 左转
 			RIGHT: 0x04,        // 右转
 			STOP: 0x05,         // 停止
-			LEFT_SHIFT: 0x06,   // 左移
-			RIGHT_SHIFT: 0x07,  // 右移
-			MODE_SWITCH: 0x08,  // 模式切换
+			SUCTION: 0x06,   	// 吸球开关
+			MODE_SWITCH: 0x07,  // 模式切换
 		}
 		
 		// ========== 接收命令码（STM32 → APP） ==========
 		this.RECEIVE_CMD = {
-			BUCKET_COUNTS: 0x09   // 上报各桶球数
+			BUCKET_COUNTS: 0x08,   // 上报各桶球数
+			SUCTION_REPORT: 0x06, // 上报吸球开关
 		}
 	}
 	
@@ -141,6 +143,9 @@ class BluetoothManager {
 			
 			// 通知数据监听器
 			this.notifyDataListeners(cmd, dataBytes)
+
+			// 全局数据解析：无论用户在哪个页面都生效
+			this.processGlobalData(cmd, dataBytes)
 			
 			// 移除已处理的帧
 			this.receiveBuffer = this.receiveBuffer.slice(frameLength)
@@ -155,6 +160,34 @@ class BluetoothManager {
 				console.error('数据监听器回调出错:', e)
 			}
 		})
+	}
+
+	processGlobalData(cmd, data) {
+		// 吸球状态上报：0x06 [0x00=关闭, 0x01=开启]
+		if (cmd === 0x06 && data.length >= 1) {
+			this.setState({ suctionOn: data[0] === 0x01 })
+		}
+		
+		// 桶数据上报：0x08 [桶1, 桶2, 桶3]
+		if (cmd === 0x08 && data.length >= 3) {
+			const newBuckets = [data[0], data[1], data[2]]
+			const maxPer = this.appState.maxPerBucket
+			
+			// 自动判断当前活跃桶：第一个未满的桶
+			let activeBucket = 0
+			for (let i = 0; i < 3; i++) {
+				if (newBuckets[i] < maxPer) { activeBucket = i; break }
+			}
+			if (newBuckets[0] >= maxPer && newBuckets[1] >= maxPer && newBuckets[2] >= maxPer) {
+				activeBucket = 2
+			}
+			
+			this.setState({
+				ballCount: newBuckets[0] + newBuckets[1] + newBuckets[2],
+				buckets: newBuckets,
+				currentBucketIndex: activeBucket
+			})
+		}
 	}
 	
 	addDataListener(listener) {
@@ -376,8 +409,7 @@ class BluetoothManager {
 			left: this.SEND_CMD.LEFT,
 			right: this.SEND_CMD.RIGHT,
 			stop: this.SEND_CMD.STOP,
-			leftShift: this.SEND_CMD.LEFT_SHIFT,
-			rightShift: this.SEND_CMD.RIGHT_SHIFT,
+			suction: this.SEND_CMD.SUCTION,
 			modeSwitch: this.SEND_CMD.MODE_SWITCH,
 		}
 		
@@ -451,7 +483,9 @@ class BluetoothManager {
 			isAutoMode: false,
 			ballCount: 0,
 			buckets: [0, 0, 0],
-			currentBucketIndex: 0
+			currentBucketIndex: 0,
+			suctionOn: false,
+			maxPerBucket: 5
 		}
 		this.notifyStateListeners()
 	}

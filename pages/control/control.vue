@@ -69,28 +69,15 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\control\control.vue
 			</view>
 		</view>
 		
-		<view class="shift-panel">
+		<view class="suction-panel">
 			<view 
-				class="control-btn btn-shift-left" 
-				@touchstart="onTouchStart('sl', $event)" 
-				@touchend="onTouchEnd"
-				@touchcancel="onTouchEnd"
-				@touchmove="onTouchMove"
+				class="control-btn btn-suction" 
+				:class="{ active: suctionOn }"
+				@click="toggleSuction"
 			>
-				<text class="btn-icon">⇐</text>
-				<text class="btn-text">左移</text>
-				<view class="press-indicator" :class="{ active: pressing }"></view>
-			</view>
-			<view 
-				class="control-btn btn-shift-right" 
-				@touchstart="onTouchStart('sr', $event)" 
-				@touchend="onTouchEnd"
-				@touchcancel="onTouchEnd"
-				@touchmove="onTouchMove"
-			>
-				<text class="btn-icon">⇒</text>
-				<text class="btn-text">右移</text>
-				<view class="press-indicator" :class="{ active: pressing }"></view>
+				<text class="btn-icon">{{ suctionOn ? '🌀' : '💨' }}</text>
+				<text class="btn-text">{{ suctionOn ? '关闭吸球' : '开启吸球' }}</text>
+				<view class="suction-indicator" :class="{ on: suctionOn }"></view>
 			</view>
 		</view>
 		
@@ -113,22 +100,58 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\control\control.vue
 				pressTimer: null,
 				pressStartTime: 0,
 				currentCmd: '',
+				suctionOn: false,
 				isLongPress: false,
 				THRESHOLD: 300 // 长按触发阈值(ms)
 			}
 		},
 		onLoad() {
 			this.isConnected = bluetoothManager.getIsConnected()
+			this.suctionOn = bluetoothManager.getState().suctionOn
+			if (this.suctionOn) {
+				this.currentStatus = '吸球中'
+			}
+
+			bluetoothManager.addStateListener(this.onStateChange)
+			//bluetoothManager.addDataListener(this.onDataReceived)
+
 			bluetoothManager.addListener(this.onConnectionChange)
 		},
 		onUnload() {
+			bluetoothManager.removeStateListener(this.onStateChange)
+			//bluetoothManager.removeDataListener(this.onDataReceived)
+
 			bluetoothManager.removeListener(this.onConnectionChange)
 			this.clearTimer()
 		},
 		methods: {
 			onConnectionChange(device, isConnected) {
 				this.isConnected = isConnected
-			},
+		},
+
+		onStateChange(state) {
+			if (this.suctionOn !== state.suctionOn) {
+				const wasOn = this.suctionOn
+				this.suctionOn = state.suctionOn
+				this.currentStatus = state.suctionOn ? '吸球中' : '待机'
+				// 吸球状态从开到关 = 吸球完成
+				if (wasOn && !state.suctionOn) {
+					uni.showToast({ title: '吸球已完成', icon: 'none' })
+				}
+			}
+		},
+			
+			//onDataReceived(cmd, data) {
+				// STM32上报吸球完成：0x06 [0x00]
+				//if (cmd === 0x06 && data.length >= 1 && data[0] === 0x00) {
+					//if (this.suctionOn) {
+						//this.suctionOn = false
+						//bluetoothManager.setState({ suctionOn: false })
+						//this.currentStatus = '待机'
+						//uni.showToast({ title: '吸球已完成', icon: 'none' })
+					//}
+				//}
+			//},
 			
 			clearTimer() {
 				if (this.pressTimer) {
@@ -176,7 +199,7 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\control\control.vue
 			},
 			
 			sendCommand(cmd) {
-				const statusMap = { 'f': '前进', 'b': '后退', 'l': '左转', 'r': '右转', 'sl': '左移', 'sr': '右移', 's': '待机' }
+				const statusMap = { 'f': '前进', 'b': '后退', 'l': '左转', 'r': '右转', 's': '待机' }
 				this.currentStatus = statusMap[cmd] || cmd
 				
 				bluetoothManager.sendCommand(this.getCmdType(cmd)).then(() => {
@@ -211,10 +234,34 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\control\control.vue
 					'b': 'backward',
 					'l': 'left',
 					'r': 'right',
-					'sl': 'leftShift',
-					'sr': 'rightShift'
 				}
 				return cmdMap[cmd] || cmd
+			},
+
+			toggleSuction() {
+				if (!this.isConnected) {
+					uni.showToast({ title: '请先连接蓝牙设备', icon: 'none' })
+					return
+				}
+
+				const newState = !this.suctionOn
+				this.suctionOn = newState
+				this.currentStatus = newState ? '吸球中' : '待机'
+				const data = newState ? [0x01] : [0x00]
+				
+				bluetoothManager.sendCommand('suction', data).then(() => {
+					bluetoothManager.setState({ suctionOn: newState })
+					console.log('吸球:', newState ? '开启' : '关闭')
+					uni.showToast({ 
+						title: newState ? '吸球已开启' : '吸球已关闭', 
+						icon: 'none' 
+					})
+				}).catch((err) => {
+					this.suctionOn = !newState
+					this.currentStatus = this.suctionOn ? '吸球中' : '待机'
+					console.error('吸球切换失败:', err)
+					uni.showToast({ title: '发送失败', icon: 'none' })
+				})
 			}
 		}
 	}
@@ -262,8 +309,10 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\control\control.vue
 	.btn-down { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
 	.btn-left { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
 	.btn-right { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-	.btn-shift-left { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
-	.btn-shift-right { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
+	.btn-suction { width: 320rpx; height: 180rpx;
+		background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+		&.active { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+	}
 	.btn-icon { font-size: 56rpx; color: #fff; margin-bottom: 8rpx; }
 	.btn-text { font-size: 28rpx; color: #fff; font-weight: 600; }
 	.press-indicator {
@@ -273,7 +322,7 @@ c:\InternshipProject\02_Badminton_26_8_7\bluetooth_app\pages\control\control.vue
 		&.active { height: 100%; }
 	}
 	
-	.shift-panel {
+	.suction-panel {
 		display: flex; justify-content: center; gap: 40rpx;
 		margin-top: 30rpx;
 	}
